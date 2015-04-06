@@ -1,0 +1,14 @@
+LIMITS
++---------------------+-----------+------------+
+|      PARAMETER      |   VALUE   |     OS     |
++---------------------+-----------+------------+
+|MAX. volume size     | 16 EiB    |   32, 64   |
+|MAX. number of files | 2^32 - 1  |   32, 64   |
+|MAX. file size       | 16 EiB    |   32, 64   |
+|MAX. filename length | ????????? |   32, 64   |
++---------------------+-----------+------------+
+
+
+1. no file descriptors left
+2. no free blocks
+3. no too much parameters check
