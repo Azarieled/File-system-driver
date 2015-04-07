@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include "filesystemdriver.h"
 
-char block_bitmap [BITNSLOTS(BLOCK_COUNT)];
-
+char g_block_bitmap [BITNSLOTS(BLOCK_COUNT)];
+g_cursor;
 
 void
 mount ()
 {
-  puts ("kinda mount");
+
 }
 
 
@@ -19,9 +19,9 @@ umount ()
 
 
 void
-filestat(unsigned int inode)
+filestat(uint32_t inode)
 {
-  if (inode >= DESCRIPTOR_COUNT)
+  if (inode >= MAX_FILE_COUNT)
     {
       puts ("There is no file with such inode.");
       return;
@@ -45,7 +45,7 @@ create(char *name)
 }
 
 
-unsigned int
+uint32_t
 open(char *name)
 {
 
@@ -53,21 +53,21 @@ open(char *name)
 
 
 void
-close(unsigned int fd)
+close(uint32_t fd)
 {
 
 }
 
 
 char *
-read(unsigned int fd, unsigned long long offset, unsigned long long size)
+read(uint32_t fd, uint64_t offset, uint64_t size)
 {
 
 }
 
 
 void
-write(unsigned int fd, unsigned long long offset, unsigned long long size, char *data)
+write(uint32_t fd, uint64_t offset, uint64_t size, char *data)
 {
 
 }
@@ -88,7 +88,7 @@ unlink(char *link_name)
 
 
 void
-truncate(char *name, unsigned long long size)
+truncate(char *name, uint64_t size)
 {
 
 }
