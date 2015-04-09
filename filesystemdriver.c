@@ -10,7 +10,7 @@ void
 mount ()
 {
     g_img_file = fopen(IMG_NAME, "w+");
-    fread(g_block_bitmap, )
+    fread(g_block_bitmap)
 }
 
 
