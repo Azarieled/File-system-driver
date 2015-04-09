@@ -1,20 +1,23 @@
 #include <stdio.h>
 #include "filesystemdriver.h"
+#define IMG_NAME "root.img"
 
 char g_block_bitmap [BITNSLOTS(BLOCK_COUNT)];
 g_cursor;
+FILE *g_img_file;
 
 void
 mount ()
 {
-
+    g_img_file = fopen(IMG_NAME, "w+");
+    fread(g_block_bitmap, )
 }
 
 
 void
 umount ()
 {
-  puts ("kinda umount");
+    fclose(g_img_file);
 }
 
 
