@@ -1,23 +1,38 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "filesystemdriver.h"
 #define IMG_NAME "root.img"
 
-char g_block_bitmap [BITNSLOTS(BLOCK_COUNT)];
-g_cursor;
-FILE *g_img_file;
+char *g_block_bitmap = NULL;
+FILE *g_img_file = NULL;
 
 void
 mount ()
 {
-    g_img_file = fopen(IMG_NAME, "w+");
-    fread(g_block_bitmap)
+    g_img_file = fopen(IMG_NAME, "rb+");
+    if (!g_img_file)
+      {
+        printf("");
+        return;
+      }
+    uint32_t size; //aray size
+    fread (&size, sizeof (uint32_t), 1, g_img_file);
+    g_block_bitmap = (char *) malloc ((size_t) size);
+    fread (g_block_bitmap, sizeof (char), size, g_img_file);
 }
 
 
 void
 umount ()
 {
-    fclose(g_img_file);
+  if (fclose(g_img_file)) // if returns 0, than all is ok
+    {
+      puts ("Problem occured during FS unmount.");
+    }
+  else
+    {
+      puts ("FS successfully unmounted.");
+    }
 }
 
 
