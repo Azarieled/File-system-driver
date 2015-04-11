@@ -115,27 +115,36 @@ interpret (char *statement)
 
   // mount
   else if (strcmp (command, "mount") == 0)
-      mount ();
+    {
+      if (status != -1)
+        mount ();
+    }
 
   // umount
   else if (strcmp (command, "umount") == 0)
-      umount ();
+    {
+      if (status != -1)
+        umount ();
+    }
 
   // filestat
   else if (strcmp (command, "filestat") == 0)
     {
       char *param;
-      uint32_t inode;
+      uint32_t fd_id;
 
       status |= getNextToken (&param, "filestat: usage: filestat inode");
-      status |= to_uint32_t (param, &inode, "Invalid inode format. A number expected.", "No file with such inode.");
+      status |= to_uint32_t (param, &fd_id, "Invalid inode format. A number expected.", "No file with such inode.");
       if (status != -1)
-        filestat (inode);
+        filestat (fd_id);
     }
 
   // ls
   else if (strcmp (command, "ls") == 0)
-      ls ();
+    {
+      if (status != -1)
+        ls ();
+    }
 
   // create
   else if (strcmp (command, "create") == 0)
@@ -251,18 +260,45 @@ interpret (char *statement)
   else if (strcmp (command, "mkdir") == 0)
     {
       char *dir_name;
-      status |= getNextToken (&dir_name, "truncate: usage: truncate name size");
+      status |= getNextToken (&dir_name, "mkdir: usage: mkdir dir_name");
       if (status != -1)
-        mkdir (dir_name, size);
+        mkdir (dir_name);
     }
 
   // rmdir
   else if (strcmp (command, "rmdir") == 0)
     {
       char *dir_name;
-      status |= getNextToken (&dir_name, "truncate: usage: truncate name size");
+      status |= getNextToken (&dir_name, "rmdir: usage: rmdir dir_name");
       if (status != -1)
         rmdir (dir_name);
+    }
+
+  // cd
+  else if (strcmp (command, "cd") == 0)
+    {
+      char *dir_name;
+      status |= getNextToken (&dir_name, "cd: usage: cd dir_name");
+      if (status != -1)
+        cd (dir_name);
+    }
+
+  // pwd
+  else if (strcmp (command, "pwd") == 0)
+    {
+      if (status != -1)
+        pwd ();
+    }
+
+  // symlink
+  else if (strcmp (command, "symlink") == 0)
+    {
+      char *path_name;
+      char *link_name;
+      status |= getNextToken (&path_name, "symlink: usage: symlink path_name link_name");
+      status |= getNextToken (&link_name, "symlink: usage: symlink path_name link_name");
+      if (status != -1)
+        symlink (path_name, link_name);
     }
 
   // exit

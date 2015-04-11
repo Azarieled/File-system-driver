@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "filesystemdriver.h"
-#define IMG_NAME "root.img"
+
+
+const char *IMG_NAME = "root.img";
+const char *FILE_TYPES_STR [] = {"file", "directory", "symlink"};
 
 char *g_block_bitmap = NULL;
 FILE *g_img_file = NULL;
@@ -12,7 +15,9 @@ mount ()
     g_img_file = fopen(IMG_NAME, "rb+");
     if (!g_img_file)
       {
-        printf("");
+        g_img_file = fopen(IMG_NAME, "wb+");
+
+        //fwrite();
         return;
       }
     uint32_t size; //aray size
@@ -37,15 +42,15 @@ umount ()
 
 
 void
-filestat(uint32_t inode)
+filestat(uint32_t fd_id)
 {
-  if (inode >= MAX_FILE_COUNT)
+  if (fd_id >= MAX_FD_COUNT)
     {
       puts ("There is no file with such inode.");
       return;
     }
 
-  printf ("kinda filestat %d", inode);
+  printf ("kinda filestat %d", fd_id);
 }
 
 
@@ -107,6 +112,41 @@ unlink(char *link_name)
 
 void
 truncate(char *name, uint64_t size)
+{
+
+}
+
+
+void
+mkdir (char *dir_name)
+{
+
+}
+
+
+void
+rmdir (char *dir_name)
+{
+
+}
+
+
+void
+cd (char *dir_name)
+{
+
+}
+
+
+void
+pwd ()
+{
+
+}
+
+
+void
+symlink (char *path_name, char *link_name)
 {
 
 }
