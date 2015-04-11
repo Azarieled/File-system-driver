@@ -9,11 +9,29 @@
 
 /*
  * Returns 0 if the command is an exit,
- * 1 if the command is interperted or -1 if not.
+ * 1 if the command is interpreted or -1 if not.
  */
 int
 interpret (char *statement);
 
+/*
+ * Returns -1 if token is absent, 0 in other case.
+ */
+int
+getNextToken (char **to_string, char *fail_message);
+
+/*
+ * Transforms C-string to uint32_t. If converted, returns 0 and writes the result into to.
+ * If error occurs, returns -1 and prints one of error messages to stdio.
+ */
+int
+to_uint32_t (char *from, uint32_t *to, char *format_error_message, char *length_error_message);
+
+/*
+ * Returns -1 if failed, 0 if converted.
+ */
+int
+to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_error_message);
 
 int main (void)
 {
@@ -26,12 +44,8 @@ int main (void)
   return 0;
 }
 
-
-/*
- * Returns -1 if token is absent, 0 in other case.
- */
 int
-getNextToken(char **to_string, char *fail_message)
+getNextToken (char **to_string, char *fail_message)
 {
   *to_string = strtok (NULL, TOKEN_DELIMS);
   if (*to_string == NULL)
@@ -46,7 +60,7 @@ getNextToken(char **to_string, char *fail_message)
  * Returns -1 if failed, 0 if converted.
  */
 int
-to_uint32_t(char *from, uint32_t *to, char *format_error_message, char *length_error_message)
+to_uint32_t (char *from, uint32_t *to, char *format_error_message, char *length_error_message)
 {
   char *error_symbol;
   unsigned long long value = strtoull (from, &error_symbol, 0);
@@ -68,7 +82,7 @@ to_uint32_t(char *from, uint32_t *to, char *format_error_message, char *length_e
  * Returns -1 if failed, 0 if converted.
  */
 int
-to_uint64_t(char *from, uint64_t *to, char *format_error_message, char *length_error_message)
+to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_error_message)
 {
   char *error_symbol;
   unsigned long long value = strtoull (from, &error_symbol, 0);
@@ -231,6 +245,24 @@ interpret (char *statement)
 
       if (status != -1)
         truncate (file_name, size);
+    }
+
+  // mkdir
+  else if (strcmp (command, "mkdir") == 0)
+    {
+      char *dir_name;
+      status |= getNextToken (&dir_name, "truncate: usage: truncate name size");
+      if (status != -1)
+        mkdir (dir_name, size);
+    }
+
+  // rmdir
+  else if (strcmp (command, "rmdir") == 0)
+    {
+      char *dir_name;
+      status |= getNextToken (&dir_name, "truncate: usage: truncate name size");
+      if (status != -1)
+        rmdir (dir_name);
     }
 
   // exit
