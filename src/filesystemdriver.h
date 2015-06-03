@@ -13,10 +13,10 @@
 
 // filesystem properties
 #define MAX_FILE_SIZE               4096          // file can be written in 1 block
+#define MAX_FILES_IN_DIRECTORY      16            // directory can be written in 1 block
+#define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
 #define MAX_FD_COUNT                1024 * 1024
 #define MAX_BLOCK_COUNT             BLOCK_COUNT
-#define MAX_FILES_IN_DIRECTORY      14            // directory can be written in 1 block
-#define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
 #define MAX_FILE_NAME_SIZE          251           // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
 #define MAX_HARDLINK_COUNT          256
 
@@ -43,55 +43,59 @@ typedef struct
 
 typedef char symlink_t [MAX_ABSOLUTE_FILE_NAME_SIZE + 1]; // +1 for \0
 
-void
+/*
+ * Returns 0 if FS mounted from existing file, 1 if new file created
+ * and -1 if FS could not mount.
+ */
+int
 mount ();
 
-void
+int
 umount ();
 
-void
+int
 filestat (uint32_t fd_id);
 
-void
+int
 ls ();
 
-void
+int
 create (char *name);
 
-uint32_t
-open (char *name);
+int
+open (char *name, uint32_t *digit_descriptor);
 
-void
+int
 close (uint32_t fd);
 
-char *
-read (uint32_t fd, uint64_t offset, uint64_t size);
+int
+read (uint32_t fd, uint64_t offset, uint64_t size, char **buffer);
 
-void
+int
 write (uint32_t fd, uint64_t offset, uint64_t size, char *data);
 
-void
+int
 link (char *file_name, char *link_name);
 
-void
+int
 unlink (char *link_name);
 
-void
+int
 truncate (char *name, uint64_t size);
 
-void
+int
 mkdir (char *dir_name);
 
-void
+int
 rmdir (char *dir_name);
 
-void
+int
 cd (char *dir_name);
 
-void
+int
 pwd ();
 
-void
+int
 symlink (char *path_name, char *link_name);
 
 #endif // FILESYSTEMDRIVER

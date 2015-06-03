@@ -5,16 +5,16 @@ CONFIG -= qt
 
 QMAKE_CFLAGS += -std=c99
 
-SOURCES += main.c \
-    filesystemdriver.c
+SOURCES += src/main.c \
+    src/filesystemdriver.c
 
 include(deployment.pri)
 qtcAddDeployment()
 
 DISTFILES += \
-    exceptions.txt
+    doc/exceptions.txt
 
 HEADERS += \
-    bitmap.h \
-    filesystemdriver.h
+    src/bitmap.h \
+    src/filesystemdriver.h
 

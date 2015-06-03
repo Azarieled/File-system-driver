@@ -33,14 +33,14 @@ to_uint32_t (char *from, uint32_t *to, char *format_error_message, char *length_
 int
 to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_error_message);
 
-int main (void)
+int main ()
 {
   char buffer [INPUT_BUFFER_SIZE];
   do
     {
-      printf ("\ndrivion> ");
+      printf ("drivion> ");
     }
-  while (fgets (buffer, INPUT_BUFFER_SIZE, stdin) && interpret(buffer));
+  while (fgets (buffer, INPUT_BUFFER_SIZE, stdin) && interpret (buffer));
   return 0;
 }
 
@@ -117,7 +117,8 @@ interpret (char *statement)
   else if (strcmp (command, "mount") == 0)
     {
       if (status != -1)
-        mount ();
+        if (mount () == -1)
+          status = 0; // exit immidiately
     }
 
   // umount
@@ -161,7 +162,10 @@ interpret (char *statement)
       char *name;
       status |= getNextToken (&name, "open: usage: open name");
       if (status != -1)
-        open (name);
+        {
+          uint32_t digit_descriptor;
+          open (name, &digit_descriptor);
+        }
     }
 
   // close
@@ -193,7 +197,10 @@ interpret (char *statement)
       status |= getNextToken (&param, "read: usage: read fd offset size");
       status |= to_uint64_t (param, &size,"Invalid size format. A number expected.", "Invalid size. Driver supports file size < 2^60.");
       if (status != -1)
-        read (fd, offset, size);
+        {
+          char *read_buffer;
+          read (fd, offset, size, &read_buffer);
+        }
     }
 
   // write
@@ -305,6 +312,7 @@ interpret (char *statement)
   else if (strcmp(command, "exit") == 0)
     {
       puts ("Come again, later.");
+      umount ();
       status = 0;
     }
 
