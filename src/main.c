@@ -1,3 +1,5 @@
+#define NO_OLDNAMES 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -33,6 +35,7 @@ to_uint32_t (char *from, uint32_t *to, char *format_error_message, char *length_
 int
 to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_error_message);
 
+
 int main ()
 {
   char buffer [INPUT_BUFFER_SIZE];
@@ -43,6 +46,7 @@ int main ()
   while (fgets (buffer, INPUT_BUFFER_SIZE, stdin) && interpret (buffer));
   return 0;
 }
+
 
 int
 getNextToken (char **to_string, char *fail_message)

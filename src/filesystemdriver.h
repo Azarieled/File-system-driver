@@ -1,8 +1,7 @@
 #ifndef FILESYSTEMDRIVER
 #define FILESYSTEMDRIVER
 #include <string.h>
-#include <limits.h>
-#include <inttypes.h>
+#include <stdint-gcc.h>
 #include <math.h>
 #include "bitmap.h"
 
@@ -12,33 +11,36 @@
 #define BLOCK_COUNT            (VOLUME_SIZE / BLOCK_SIZE)  // 2^17
 
 // filesystem properties
+#define FILESYSTEM_IDENTIFIER     0xACDC007
 #define MAX_FILE_SIZE               4096          // file can be written in 1 block
-#define MAX_FILES_IN_DIRECTORY      16            // directory can be written in 1 block
+#define MAX_FILES_IN_DIRECTORY      UINT32_MAX
 #define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
 #define MAX_FD_COUNT                1024 * 1024
-#define MAX_BLOCK_COUNT             BLOCK_COUNT
-#define MAX_FILE_NAME_SIZE          251           // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
-#define MAX_HARDLINK_COUNT          256
+#define MAX_BLOCK_COUNT             UINT64_MAX >> 2
+#define MAX_FILE_NAME_SIZE          256 - 32 - 1           // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
+#define MAX_HARDLINK_COUNT          UINT32_MAX
 
 typedef enum { FILE_DESCRIPTOR, DIRECTORY_DESCRIPTOR, SYMLINK_DESCRIPTOR } file_type_t;
 
 typedef struct
 {
   file_type_t type            : 2;
-  uint32_t    size            : (int) ceil(log2(MAX_FILE_SIZE));
-  uint32_t    hard_link_count : (int) ceil(log2(MAX_HARDLINK_COUNT));
-  uint32_t    block_number    : (int) ceil(log2(MAX_BLOCK_COUNT));
+  uint64_t    size;
+  uint32_t    hard_link_count;
+  uint64_t    block_number    : 62;
 } fd_t;
 
 typedef struct
 {
   char     name [MAX_FILE_NAME_SIZE + 1]; // +1 for \0
-  uint32_t fd_id                    : (int) ceil(log2(MAX_FD_COUNT));
+  uint32_t fd_id;
 } dir_link_t;
 
 typedef struct
 {
-  fd_t links [MAX_FILES_IN_DIRECTORY];
+  uint32_t    file_count;
+  uint32_t   *parent_fd_id;
+  dir_link_t *links;
 } dir_t;
 
 typedef char symlink_t [MAX_ABSOLUTE_FILE_NAME_SIZE + 1]; // +1 for \0
@@ -78,7 +80,7 @@ int
 link (char *file_name, char *link_name);
 
 int
-unlink (char *link_name);
+unlink(char *link_name);
 
 int
 truncate (char *name, uint64_t size);
