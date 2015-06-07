@@ -1,12 +1,12 @@
 LIMITS
-+---------------------+-----------+------------+
-|      PARAMETER      |   VALUE   |     OS     |
-+---------------------+-----------+------------+
-|MAX. volume size     | 16 EiB    |   32, 64   |
-|MAX. number of files | 2^32 - 1  |   32, 64   |
-|MAX. file size       | 16 EiB    |   32, 64   |
-|MAX. filename length | ????????? |   32, 64   |
-+---------------------+-----------+------------+
++---------------------+-----------+
+|      PARAMETER      |   VALUE   |
++---------------------+-----------+
+|MAX. volume size     | 16 EiB    |
+|MAX. number of files | 2^32 - 1  |
+|MAX. file size       | 16 EiB    |
+|MAX. filename length | ????????? |
++---------------------+-----------+
 
 
 1. no file descriptors left
