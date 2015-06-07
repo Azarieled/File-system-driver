@@ -11,8 +11,7 @@
 #define BLOCK_COUNT            (VOLUME_SIZE / BLOCK_SIZE)  // 2^17
 
 // filesystem properties
-#define FILESYSTEM_IDENTIFIER     0xACDC007
-#define MAX_FILE_SIZE               4096          // file can be written in 1 block
+#define MAX_FILE_SIZE               UINT64_MAX    // file can be written in 1 block
 #define MAX_FILES_IN_DIRECTORY      UINT32_MAX
 #define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
 #define MAX_FD_COUNT                1024 * 1024
@@ -38,9 +37,9 @@ typedef struct
 
 typedef struct
 {
-  uint32_t    file_count;
-  uint32_t   *parent_fd_id;
-  dir_link_t *links;
+  fd_t     fd;
+  uint32_t file_count;
+  uint32_t parent_fd_id;
 } dir_t;
 
 typedef char symlink_t [MAX_ABSOLUTE_FILE_NAME_SIZE + 1]; // +1 for \0
