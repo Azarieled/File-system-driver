@@ -1,10 +1,12 @@
-#define NO_OLDNAMES 1
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <string.h>
 #include <assert.h>
 #include "filesystemdriver.h"
+
+#ifndef StrRel
+#define StrRel(s1, op, s2) (strcmp(s1, s2) op 0)
+#endif //StrRel
 
 #define INPUT_BUFFER_SIZE 5000
 #define TOKEN_DELIMS " \r\n\t"
@@ -38,6 +40,7 @@ to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_
 
 int main ()
 {
+  _Static_assert (BLOCK_SIZE > sizeof (fs_header_t), "Block size must be not less than header");
   char buffer [INPUT_BUFFER_SIZE];
   do
     {
@@ -118,7 +121,7 @@ interpret (char *statement)
     }
 
   // mount
-  else if (strcmp (command, "mount") == 0)
+  else if (StrRel(command, ==, "mount"))
     {
       if (status != -1)
         if (mount () == -1)
@@ -126,14 +129,14 @@ interpret (char *statement)
     }
 
   // umount
-  else if (strcmp (command, "umount") == 0)
+  else if (StrRel(command, ==, "umount"))
     {
       if (status != -1)
         umount ();
     }
 
   // filestat
-  else if (strcmp (command, "filestat") == 0)
+  else if (StrRel(command, ==, "filestat"))
     {
       char *param;
       uint32_t fd_id;
@@ -145,14 +148,14 @@ interpret (char *statement)
     }
 
   // ls
-  else if (strcmp (command, "ls") == 0)
+  else if (StrRel(command, ==, "ls"))
     {
       if (status != -1)
         ls ();
     }
 
   // create
-  else if (strcmp (command, "create") == 0)
+  else if (StrRel(command, ==, "create"))
     {
       char *file_name;
       status |= getNextToken (&file_name, "create: usage: create file_name");
@@ -161,7 +164,7 @@ interpret (char *statement)
     }
 
   // open
-  else if (strcmp (command, "open") == 0)
+  else if (StrRel(command, ==, "open"))
     {
       char *name;
       status |= getNextToken (&name, "open: usage: open name");
@@ -173,7 +176,7 @@ interpret (char *statement)
     }
 
   // close
-  else if (strcmp (command, "close") == 0)
+  else if (StrRel(command, ==, "close"))
     {
       char *param;
       uint32_t fd;
@@ -185,7 +188,7 @@ interpret (char *statement)
     }
 
   // read
-  else if (strcmp (command, "read") == 0)
+  else if (StrRel(command, ==, "read"))
     {
       // buffer
       char *param;
@@ -202,13 +205,14 @@ interpret (char *statement)
       status |= to_uint64_t (param, &size,"Invalid size format. A number expected.", "Invalid size. Driver supports file size < 2^60.");
       if (status != -1)
         {
-          char *read_buffer;
-          read (fd, offset, size, &read_buffer);
+          char read_buffer [size];
+          read (fd, offset, size, read_buffer);
+          puts (read_buffer);
         }
     }
 
   // write
-  else if (strcmp (command, "write") == 0)
+  else if (StrRel(command, ==, "write"))
     {
       // buffer
       char *param;
@@ -226,11 +230,14 @@ interpret (char *statement)
       status |= to_uint64_t (param, &size,"Invalid size format. A number expected.", "Invalid size. Driver supports file size < 2^60.");
       status |= getNextToken (&data, "write: usage: write fd offset size data");
       if (status != -1)
-        write (fd, offset, size, data);
+        {
+          //TODO
+          write (fd, offset, size, data);
+        }
     }
 
-  //link
-  else if (strcmp (command, "link") == 0)
+  // link
+  else if (StrRel(command, ==, "link"))
     {
       char *file_name;
       char *link_name;
@@ -241,8 +248,8 @@ interpret (char *statement)
         link(file_name, link_name);
     }
 
-  //unlink
-  else if (strcmp (command, "unlink") == 0)
+  // unlink
+  else if (StrRel(command, ==, "unlink"))
     {
       char *link_name;
       status |= getNextToken (&link_name, "unlink: usage: link link_name");
@@ -251,7 +258,7 @@ interpret (char *statement)
     }
 
   // truncate
-  else if (strcmp (command, "truncate") == 0)
+  else if (StrRel(command, ==, "truncate"))
     {
       // buffer
       char *param;
@@ -268,7 +275,7 @@ interpret (char *statement)
     }
 
   // mkdir
-  else if (strcmp (command, "mkdir") == 0)
+  else if (StrRel(command, ==, "mkdir"))
     {
       char *dir_name;
       status |= getNextToken (&dir_name, "mkdir: usage: mkdir dir_name");
@@ -277,7 +284,7 @@ interpret (char *statement)
     }
 
   // rmdir
-  else if (strcmp (command, "rmdir") == 0)
+  else if (StrRel(command, ==, "rmdir"))
     {
       char *dir_name;
       status |= getNextToken (&dir_name, "rmdir: usage: rmdir dir_name");
@@ -286,7 +293,7 @@ interpret (char *statement)
     }
 
   // cd
-  else if (strcmp (command, "cd") == 0)
+  else if (StrRel(command, ==, "cd"))
     {
       char *dir_name;
       status |= getNextToken (&dir_name, "cd: usage: cd dir_name");
@@ -295,14 +302,14 @@ interpret (char *statement)
     }
 
   // pwd
-  else if (strcmp (command, "pwd") == 0)
+  else if (StrRel(command, ==, "pwd"))
     {
       if (status != -1)
         pwd ();
     }
 
   // symlink
-  else if (strcmp (command, "symlink") == 0)
+  else if (StrRel(command, ==, "symlink"))
     {
       char *path_name;
       char *link_name;
@@ -313,10 +320,10 @@ interpret (char *statement)
     }
 
   // exit
-  else if (strcmp(command, "exit") == 0)
+  else if (StrRel(command, ==, "exit"))
     {
-      puts ("Come again, later.");
       umount ();
+      puts ("Come again, later.");
       status = 0;
     }
 
