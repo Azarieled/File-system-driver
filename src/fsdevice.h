@@ -26,10 +26,7 @@ fd_t *
 get_fd (int fd_id);
 
 void *
-get_data ();
-
-void
-clear_buffer ();
+get_data (fd_t fd/*, uint32_t block_num*/);
 
 #endif // FSDEVICE_H
 

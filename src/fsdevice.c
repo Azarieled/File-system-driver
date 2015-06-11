@@ -17,6 +17,26 @@ FILE     *g_img_file = NULL;
 fs_header_t  g_fs_header;
 char        *g_block_bitmap;
 
+// === utility func decl ===
+
+void
+clear_buffer ();
+
+// === utility func impl ===
+
+void
+clear_buffer ()
+{
+  size_t *buffer_ptr = buffer;
+
+  *(buffer_ptr) = 0;
+  for (int i = 0; i < buffer_size; ++i)
+    {
+      *(++buffer_ptr) = 0;
+    }
+}
+
+// === header func impl ===
 
 int
 mount_fs ()
@@ -155,19 +175,7 @@ get_fd (int fd_id)
 }
 
 void *
-get_data (int fd_id)
+get_data (fd_t fd/*, uint32_t block_num*/)
 {
   //TODO
-}
-
-void
-clear_buffer ()
-{
-  size_t *buffer_ptr = buffer;
-
-  *(buffer_ptr) = 0;
-  for (int i = 0; i < buffer_size; ++i)
-    {
-      *(++buffer_ptr) = 0;
-    }
 }
