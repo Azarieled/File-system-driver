@@ -25,6 +25,15 @@ get_bit_map ();
 fd_t *
 get_fd (int fd_id);
 
+int
+new_file_fd (file_fd_t *fd);
+
+int
+new_dir_fd (dir_fd_t *fd);
+
+int
+new_symlink_fd (fd_t *fd);
+
 void *
 get_data (fd_t fd/*, uint32_t block_num*/);
 

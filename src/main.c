@@ -231,7 +231,7 @@ interpret (char *statement)
       status |= getNextToken (&data, "write: usage: write fd offset size data");
       if (status != -1)
         {
-          //TODO
+          //TODO aditional buffer in needed
           write (fd, offset, size, data);
         }
     }

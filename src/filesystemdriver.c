@@ -395,7 +395,29 @@ int
 write(uint32_t fd, uint64_t offset, uint64_t size, char *data)
 {
   CHECK_IS_MOUNTED
-  //TODO
+
+  // assuming that open checked that file is simple file
+  numeric_fd_t *numeric_fd = get_numeric_fd (fd);
+  uint32_t fd_id = numeric_fd->fd_id;
+
+  file_fd_t *fd_ptr = (file_fd_t *) get_fd (fd_id);
+  file_fd_t file_fd = *fd_ptr;
+  free (fd_ptr);
+
+  if (offset > file_fd.fd.size)
+    {
+      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.fd.size);
+      return -1;
+    }
+  else if (offset + size < offset || offset + size > file_fd.fd.size)
+    {
+      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). Their summ is bigger than file size (%llu).\n", offset, size, file_fd.fd.size);
+      return -1;
+    }
+  else
+    {
+      //TODO char *data = get_data();
+    }
 }
 
 
