@@ -1,7 +1,7 @@
 #ifndef FILESYSTEMDRIVER
 #define FILESYSTEMDRIVER
 
-#include <stdint-gcc.h>
+#include <stdint.h>
 
 // device properties
 #define VOLUME_SIZE     (uint64_t) 512 * 1024        // 512  KiB
