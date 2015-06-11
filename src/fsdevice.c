@@ -1,14 +1,16 @@
 #include "fsdevice.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint-gcc.h>
+#include <string.h>
 #include "bitmap.h"
+
+//TODO #include <time.h>
 
 const char *DEFAULT_IMG_NAME      = "drivion.img";
 
 // shared buffer
-const int buffer_size = BUFSIZ;
-const char buffer [BUFSIZ];
+const int buffer_size = BLOCK_SIZE;
+const char buffer [BLOCK_SIZE];
 
 // fs file ptr
 FILE     *g_img_file = NULL;
@@ -17,46 +19,49 @@ FILE     *g_img_file = NULL;
 fs_header_t  g_fs_header;
 char        *g_block_bitmap;
 
-// === utility func decl ===
-
-void
-clear_buffer ();
-
-// === utility func impl ===
-
-void
-clear_buffer ()
-{
-  size_t *buffer_ptr = buffer;
-
-  *(buffer_ptr) = 0;
-  for (int i = 0; i < buffer_size; ++i)
-    {
-      *(++buffer_ptr) = 0;
-    }
-}
 
 // === header func impl ===
+
 
 int
 mount_fs ()
 {
   int result_status = 0;
 
+  if (is_mounted())
+    {
+      puts ("Not unmounted.");
+      return 1;
+    }
+
   // trying to open file
   g_img_file = fopen (DEFAULT_IMG_NAME, "rb+");
-  if (!g_img_file)
+  if (g_img_file == NULL)
     {
       puts ("No FS file found, a new one created.");
-      result_status = create_img ();
+      create_img ();
     }
+
+  // trying to open again
   g_img_file = fopen (DEFAULT_IMG_NAME, "rb+");
-  if (!g_img_file)
+  if (g_img_file == NULL)
     {
+      puts ("Some problems occured during file system mount.");
       return -1;
     }
 
-  g_block_bitmap = malloc (BITNSLOTS (g_fs_header.block_count));
+  // reading file header
+  fread(&g_fs_header, sizeof g_fs_header, 1, g_img_file);
+  if (g_fs_header.fs_id != FS_ID)
+    {
+      puts ("The passed file is not the file system image.");
+      return -2;
+    }
+
+  // reading bitmap
+  size_t bitmap_size = BITNSLOTS (g_fs_header.block_count);
+  g_block_bitmap = malloc (bitmap_size);
+  fread(&g_block_bitmap, sizeof bitmap_size, 1, g_img_file);
 
   return result_status;
 }
@@ -75,7 +80,7 @@ umount_fs()
       return 1;
     }
 
-  if (fclose (g_img_file) != NULL) // if returns 0, than all is ok
+  if (fclose (g_img_file) != 0) // if returns 0, than all is ok
     {
       //EXCEPTION
       return -1;
@@ -90,12 +95,6 @@ umount_fs()
   g_block_bitmap = NULL;
 }
 
-/**
- * Creates clean img file.
- *
- * @brief create_img
- * @return -1 if fails, 1 if ok
- */
 int
 create_img ()
 {
@@ -112,42 +111,54 @@ create_img ()
   g_fs_header.block_size = BLOCK_SIZE;
   g_fs_header.fd_count = DEVICE_FD_COUNT;
 
-  // global header
-  clear_buffer ();
-  uint64_t *header_buff_ptr = buffer;
-  *(header_buff_ptr) = FS_ID;
-  *(++header_buff_ptr) = BLOCK_SIZE;
-  *(++header_buff_ptr) = BLOCK_COUNT;
-  *(++header_buff_ptr) = DEVICE_FD_COUNT;
-  fwrite (header_buff_ptr, BLOCK_SIZE, 1, g_img_file);
-
-  // rounding (BLOCK_COUNT / BLOCK_SIZE) to the bigger int
-  //int block_count = (BLOCK_COUNT + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
   // bitmap
   //TODO add occupied blocks
-  clear_buffer ();
-  int bitmap_bytes_count = BITNSLOTS(g_fs_header.block_count);
-  int bitmap_buffers_count = (bitmap_bytes_count + buffer_size - 1) / buffer_size;
-  for (int i = 0; i < bitmap_buffers_count; ++i)
-    {
-      fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
-    }
+  g_fs_header.bitmap_block_num = HEADER_BLOCK_NUM + HEADER_BLOCK_COUNT;
+  int bitmap_blocks_count = (BITNSLOTS(g_fs_header.block_count) + g_fs_header.block_size - 1) / g_fs_header.block_size;
 
   // descriptors
+  g_fs_header.fd_block_num = bitmap_blocks_count + g_fs_header.bitmap_block_num;
+  int fd_blocks_count = (g_fs_header.fd_count + g_fs_header.block_size - 1) / g_fs_header.block_size;
 
-  for (int i = 0; i < (BLOCK_COUNT + BLOCK_SIZE - 1) / BLOCK_SIZE ; ++i)
+  // data blocks
+  g_fs_header.data_block_num = g_fs_header.fd_block_num + fd_blocks_count;
+  int data_blocks_count = g_fs_header.block_count - g_fs_header.data_block_num;
+
+  // root descriptor
+  fd_t root_descriptor = {
+    //.creation_date = ,
+    //.modification_date = ,
+    .size = 0,
+    .type = DIRECTORY_DESCRIPTOR,
+    .hard_link_count = 2,
+    .owner_mode = 7,
+    .group_mode = 5,
+    .other_mode = 5,
+    .additional_block_num = g_fs_header.data_block_num
+  };
+
+  // writing files
+  memset (&buffer, 0, buffer_size);
+
+  // header
+  *((fs_header_t *) buffer) = g_fs_header;
+  fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
+  memset (&buffer, 0, sizeof g_fs_header);
+
+  // bitmap
+  for (int i = 0; i < bitmap_blocks_count; ++i)
     {
       fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
     }
 
-  // root directory
+  // fd_blocks
+  for (int i = 0; i < fd_blocks_count - 1 ; ++i)
+    {
+      fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
+    }
 
-  fd_t root_descriptor;
-
-  // free blocks
-
-  for (int i = 0; i < BLOCK_COUNT - 1; ++i)
+  // data_blocks
+  for (int i = 0; i < data_blocks_count - 1; ++i)
     {
       fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
     }
@@ -166,36 +177,25 @@ get_bit_map ()
   return g_block_bitmap;
 }
 
-fd_t *
-get_fd (int fd_id)
+int
+get_fd (int fd_id, fd_t *fd)
 {
-  fd_t *fd = malloc(sizeof (fd_t) * 2);
+  fd_t found_fd;
   //TODO
-  return fd;
-}
-
-
-uint32_t new_file_fd(file_fd_t *fd)
-{
- //TODO
-}
-
-
-uint32_t new_dir_fd(dir_fd_t *fd)
-{
-  //TODO
-}
-
-int 
-update_dir_fd (int fd_id, dir_fd_t *dir)
-{
-  //TODO
+  *fd = found_fd;
+  return 0;
 }
 
 uint32_t
-new_symlink_fd(symlink_fd_t *fd)
+create_fd (fd_t *fd)
 {
-  //TODO
+
+}
+
+int
+update_fd (int fd_id, fd_t *dir)
+{
+
 }
 
 int
@@ -211,13 +211,13 @@ get_data (fd_t fd/*, uint32_t block_num*/)
 }
 
 uint32_t
-find_free_block 
+find_free_block ()
 {
 
 }
 
 int
-write_block (uint32_t block_id, void *data)
+update_block (uint32_t block_id, void *data)
 {
   
 }

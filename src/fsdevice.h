@@ -13,6 +13,12 @@ is_mounted ();
 int
 umount_fs ();
 
+/**
+ * Creates clean img file.
+ *
+ * @brief create_img
+ * @return -1 if fails, 1 if ok
+ */
 int
 create_img ();
 
@@ -22,20 +28,14 @@ get_fs_header ();
 char *
 get_bit_map ();
 
-fd_t *
-get_fd (int fd_id);
+int
+get_fd (int fd_id, fd_t *fd);
 
 uint32_t
-new_file_fd (file_fd_t *fd);
-
-uint32_t
-new_dir_fd (dir_fd_t *fd);
+create_fd (fd_t *fd);
 
 int 
-update_dir_fd (int fd_id, dir_fd_t *dir);
-
-uint32_t
-new_symlink_fd(symlink_fd_t *fd);
+update_fd (int fd_id, fd_t *dir);
 
 int
 append_data_to_fd (uint32_t fd_id, void *data, uint64_t size);
@@ -47,7 +47,7 @@ uint32_t
 find_free_block ();
 
 int
-write_block (uint32_t block_id, void *data);
+update_block (uint32_t block_id, void *data);
 
 #endif // FSDEVICE_H
 
