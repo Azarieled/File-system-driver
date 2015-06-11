@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "filesystemdriver.h"
 #include "fsdevice.h"
 
@@ -9,7 +10,7 @@
 #endif //StrRel
 
 #define CHECK_IS_MOUNTED \
-if (!is_mounted ())         \
+if (is_mounted ())       \
   {                      \
     return -1;           \
   }                      \
@@ -23,13 +24,15 @@ const char *FILE_TYPES_STR []     = {"file", "directory", "symlink"};
 
 // session data
 uint32_t  g_working_directory_fd_id;
-dir_fd_t  g_working_directory;
+fd_t  g_working_directory;
 char      g_working_directory_name [MAX_ABSOLUTE_FILE_NAME_SIZE + 1];
 
 //TODO hashmap
 // opened fd
 numeric_fd_t *g_numeric_fd_list = NULL;
 uint32_t last_generated = 0;
+
+// === additional functions ===
 
 uint32_t
 generate_numeric_fd_id ();
@@ -56,13 +59,15 @@ get_fd_id_by_name (char *name, uint32_t *result);
  * If 0 is returned, than fd_id is initialized with hard link fd id
  */
 int
-get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id);
+get_hard_link_fd_id (char *name, fd_t dir, uint32_t *fd_id);
 
 int
-add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, dir_fd_t dir, uint32_t dir_fd_id);
+add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, uint32_t dir_fd_id, fd_t dir);
 
 uint32_t
 calc_block_count ();
+
+// === additional functions impl ===
 
 uint32_t
 generate_numeric_fd_id ()
@@ -164,7 +169,7 @@ get_fd_id_by_name (char *name, uint32_t *result)
 }
 
 int
-get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
+get_hard_link_fd_id (char *name, fd_t dir, uint32_t *fd_id)
 {
   // C string validation
   if (*name == '\0')
@@ -182,8 +187,9 @@ get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
     }
   else
     {
-      hard_link_t *links = get_data (dir.fd);
-      for (uint32_t i = 0; i < dir.file_count; ++i)
+      hard_link_t *links = get_data (dir);
+      uint64_t file_count = dir.size / sizeof (hard_link_t);
+      for (uint32_t i = 0; i < file_count; ++i)
         {
           if (StrRel(name, ==, links->name))
             {
@@ -200,7 +206,7 @@ get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
 }
 
 int
-add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, dir_fd_t dir, uint32_t dir_fd_id)
+add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, uint32_t dir_fd_id, fd_t dir)
 {
   unsigned int name_len = strlen (name);
   if (name_len > MAX_FILE_NAME_SIZE)
@@ -211,10 +217,11 @@ add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, dir_fd_t dir, uint32_
   hard_link_t hard_link;
   strcpy (hard_link.name, name);
   hard_link.fd_id = hard_link_fd_id;
-  append_data_to_fd (dir_fd_id, hard_link, sizeof (hard_link_t));
-  dir.fd.size += sizeof (hard_link_t);
-  dir.file_count += 1;
-  update_dir_fd (dir_fd_id, &dir);
+  append_data_to_fd (dir_fd_id, &hard_link, sizeof (hard_link_t));
+  dir.size += sizeof (hard_link_t);
+  update_fd (dir_fd_id, &dir);
+  //TODO handle update status
+  //TODO update original file
 }
 
 uint32_t
@@ -240,32 +247,39 @@ mount ()
   if (mount_status == -1)
     {
       //EXCEPTION
-      puts ("Some problems occured during file system mount.");
+      if (is_mounted())
+        {
+          umount ();
+        }
       return -1;
     }
 
   // initializing working directory
   g_working_directory_fd_id = ROOT_FD_ID;
+  int get_status = get_fd (g_working_directory_fd_id, &g_working_directory);
 
-  dir_fd_t *root_dir_ptr = (dir_fd_t *) get_fd (g_working_directory_fd_id);
-
-  if (root_dir_ptr == NULL)
+  if (get_status != 0)
     {
       //EXCEPTION
       puts ("Couldn't get file system root.");
+      if (is_mounted())
+        {
+          umount ();
+        }
       return -1;
     }
 
   // for being sure that file system is not corrupted
-  if (root_dir_ptr->fd.type != DIRECTORY_DESCRIPTOR)
+  if (g_working_directory.type != DIRECTORY_DESCRIPTOR)
     {
       //EXCEPTION
       puts ("File system root is corrupted.");
+      if (is_mounted())
+        {
+          umount ();
+        }
       return -1;
     }
-
-  g_working_directory = *root_dir_ptr;
-  free (root_dir_ptr);
 
   strcpy (g_working_directory_name, ROOT_DIRECTORY_STR);
 
@@ -309,11 +323,19 @@ filestat(uint32_t fd_id)
       return -1;
     }
 
-  fd_t *fd = get_fd (fd_id);
+  fd_t fd;
+  int find_status = get_fd (fd_id, &fd);
+  if (find_status != 0)
+    {
+      //EXCEPTION
+      printf("File descriptor %u not found.\n", fd_id);
+      return -1;
+    }
+
   printf ("File descriptor %u is a %s.\n"
           "Size: %lu\n"
-          "Has %u hardlinks.\n",
-          fd_id, FILE_TYPES_STR[fd->type], fd->size, fd->hard_link_count);
+          "Has %lu hardlinks.\n",
+          fd_id, FILE_TYPES_STR[fd.type], fd.size, fd.hard_link_count);
   return 0;
 }
 
@@ -324,8 +346,8 @@ ls ()
   CHECK_IS_MOUNTED
   printf ("%s %u", CURRENT_DIRECTORY_STR, g_working_directory_fd_id);
   printf ("%s %u", PARENT_DIRECTORY_STR, g_working_directory.parent_fd_id);
-  uint32_t link_count = g_working_directory.file_count;
-  hard_link_t *links = get_data (g_working_directory.fd);
+  uint32_t link_count = g_working_directory.size / sizeof (hard_link_t);
+  hard_link_t *links = get_data (g_working_directory);
   for (uint32_t i = 0; i < link_count; ++i)
     {
       printf ("%s - %u", links->name, links->fd_id);
@@ -353,8 +375,14 @@ open(char *name, uint32_t *numeric_descriptor)
 
   if (find_file_status != -1)
     {
-      file_fd_t *file_fd_ptr = (file_fd_t *) get_fd (fd_id);
-      if (file_fd_ptr->fd.type == FILE_DESCRIPTOR)
+      fd_t file_fd;
+      int find_status = get_fd (fd_id, &file_fd);
+      if (find_status != 0)
+        {
+          puts ("Error occured during read. Could not find file in directory.");
+        }
+
+      if (file_fd.type == FILE_DESCRIPTOR)
         {
           *numeric_descriptor = add_numeric_fd (fd_id);
           printf ("Numeric file descriptor: %u", *numeric_descriptor);
@@ -362,7 +390,7 @@ open(char *name, uint32_t *numeric_descriptor)
       else
         {
           //EXCEPTION
-          printf ("This operation is not supported for %s.\n", FILE_TYPES_STR [file_fd_ptr->fd.type]);
+          printf ("This operation is not supported for %s.\n", FILE_TYPES_STR [file_fd.type]);
           return -1;
         }
     }
@@ -390,19 +418,25 @@ read(uint32_t fd, uint64_t offset, uint64_t size, char *buffer)
   // assuming that open checked that file is simple file
   numeric_fd_t *numeric_fd = get_numeric_fd (fd);
   uint32_t fd_id = numeric_fd->fd_id;
+  fd_t file_fd;
+  int find_status = get_fd (fd_id, &file_fd);
 
-  file_fd_t *fd_ptr = (file_fd_t *) get_fd (fd_id);
-  file_fd_t file_fd = *fd_ptr;
-  free (fd_ptr);
-
-  if (offset > file_fd.fd.size)
+  if (find_status != 0)
     {
-      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.fd.size);
+      puts ("Error occured during read. Could not find file.");
       return -1;
     }
-  else if (offset + size < offset || offset + size > file_fd.fd.size)
+
+  if (offset > file_fd.size)
     {
-      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). Their summ is bigger than file size (%llu).\n", offset, size, file_fd.fd.size);
+      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.size);
+      return -1;
+    }
+  else if (offset + size < offset || offset + size > file_fd.size)
+    {
+      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). "
+              "Their summ is bigger than file size (%llu).\n",
+              offset, size, file_fd.size);
       return -1;
     }
   else
@@ -420,19 +454,23 @@ write(uint32_t fd, uint64_t offset, uint64_t size, char *data)
   // assuming that open checked that file is simple file
   numeric_fd_t *numeric_fd = get_numeric_fd (fd);
   uint32_t fd_id = numeric_fd->fd_id;
+  fd_t file_fd;
+  int find_status = get_fd (fd_id, &file_fd);
 
-  file_fd_t *fd_ptr = (file_fd_t *) get_fd (fd_id);
-  file_fd_t file_fd = *fd_ptr;
-  free (fd_ptr);
-
-  if (offset > file_fd.fd.size)
+  if (find_status != 0)
     {
-      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.fd.size);
+      puts ("Error occured during read. Could not find file.");
       return -1;
     }
-  else if (offset + size < offset || offset + size > file_fd.fd.size)
+
+  if (offset > file_fd.size)
     {
-      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). Their summ is bigger than file size (%llu).\n", offset, size, file_fd.fd.size);
+      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.size);
+      return -1;
+    }
+  else if (offset + size < offset || offset + size > file_fd.size)
+    {
+      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). Their summ is bigger than file size (%llu).\n", offset, size, file_fd.size);
       return -1;
     }
   else
@@ -501,17 +539,16 @@ cd (char *dir_name)
       return 0;
     }
 
-  fd_t *fd_ptr = get_fd (fd_id);
-  if (fd_ptr->type != DIRECTORY_DESCRIPTOR)
+  fd_t fd;
+  int find_status = get_fd (fd_id, &fd);
+  if (fd.type != DIRECTORY_DESCRIPTOR)
     {
-      free (fd_ptr);
       printf ("%s is not a directory.", dir_name);
       return -1;
     }
 
   g_working_directory_fd_id = fd_id;
-  g_working_directory = *((dir_fd_t *) fd_ptr);
-  free (fd_ptr);
+  g_working_directory = fd;
 
   //TODO change this workaround if compound names in cd will be implemented
   if (*dir_name == '/')
@@ -532,7 +569,6 @@ cd (char *dir_name)
     strcat (g_working_directory_name, dir_name);
 
   return 0;
-
 }
 
 
@@ -548,15 +584,15 @@ symlink (char *path_name, char *link_name)
 {
   CHECK_IS_MOUNTED
   //TODO
-  symlink_fd_t symlink_fd;
-  symlink_fd.fd.type = SYMLINK_DESCRIPTOR;
-  symlink_fd.fd.size = 4096;
-  symlink_fd.fd.hard_link_count = 1;
-  uint32_t fd_id = new_symlink_fd (&symlink_fd);
+  fd_t symlink_fd;
+  memset (&symlink_fd, 0, sizeof symlink_fd);
+  symlink_fd.type = SYMLINK_DESCRIPTOR;
+  symlink_fd.size = 4096;
+  uint32_t fd_id = create_fd (&symlink_fd);
   if (fd_id != BAD_FD_ID)
     {
-      symlink_fd.fd.additional_block_num = find_free_block ();
-      write_block (symlink_fd.fd.additional_block_num, path_name);
+      symlink_fd.additional_block_num = find_free_block ();
+      update_block (symlink_fd.additional_block_num, path_name);
       add_hard_link_fd_id (link_name, fd_id, g_working_directory_fd_id, g_working_directory);
     }
 }

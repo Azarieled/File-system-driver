@@ -4,15 +4,17 @@
 #include <stdint-gcc.h>
 
 // device properties
-#define VOLUME_SIZE     (uint64_t) 512 * 1024 * 1024 // 512  MiB
-#define DEVICE_FD_COUNT VOLUME_SIZE / 1024 / 512     // why not?
+#define VOLUME_SIZE     (uint64_t) 512 * 1024  // 512  KiB
+#define DEVICE_FD_COUNT VOLUME_SIZE / 4096     // why not?
 #define BLOCK_SIZE      4096                         // 4    KiB
 #define BLOCK_COUNT     (VOLUME_SIZE / BLOCK_SIZE)   // 2^17
 
 // filesystem properties
 #define FS_ID                       0xACDC007
-#define BAD_FD_ID                   0
-#define ROOT_FD_ID                  1
+#define BAD_FD_ID                   UINT32_MAX
+#define ROOT_FD_ID                  0
+#define HEADER_BLOCK_NUM            0
+#define HEADER_BLOCK_COUNT          1
 
 #define MAX_FILE_SIZE               ((uint64_t) 1) << 44
 #define MAX_FILE_COUNT              UINT32_MAX
@@ -22,7 +24,7 @@
 #define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
 #define MAX_FILE_NAME_SIZE          256 - 32 - 1  // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
 
-typedef enum { FILE_DESCRIPTOR, DIRECTORY_DESCRIPTOR, SYMLINK_DESCRIPTOR } file_type_t;
+typedef enum { FREE_DESCRIPTOR, FILE_DESCRIPTOR, DIRECTORY_DESCRIPTOR, SYMLINK_DESCRIPTOR } fd_type_t;
 
 typedef struct
 {
@@ -30,39 +32,37 @@ typedef struct
   uint64_t  block_count;
   uint32_t  block_size;
   uint32_t  fd_count;
+  uint64_t  bitmap_block_num;
+  uint64_t  fd_block_num;
+  uint64_t  data_block_num;
 } fs_header_t;
 
 typedef struct
 {
-  file_type_t type            : 2;
-  uint64_t    size            : 44;
-  uint32_t    hard_link_count : 26;
+  uint64_t    creation_date;
+  uint64_t    modification_date;
+  uint64_t    size;
+  fd_type_t   type            : 2;
+  uint64_t    hard_link_count : 38;
   uint8_t     owner_mode;
   uint8_t     group_mode;
   uint8_t     other_mode;
-  uint64_t    creation_date;
-  uint64_t    modification_date;
   uint32_t    additional_block_num;
+
+  union
+  {
+    // for file
+    uint32_t file_data_links [7];
+
+    // for dir
+    struct
+    {
+      uint32_t parent_fd_id;
+      uint32_t data_links [6];
+    };
+  };
+
 } fd_t;
-
-typedef struct
-{
-  fd_t     fd;
-  uint32_t data_links [8];
-} file_fd_t;
-
-typedef struct
-{
-  fd_t     fd;
-  uint32_t file_count;
-  uint32_t parent_fd_id;
-  uint32_t data_links [6];
-} dir_fd_t;
-
-typedef struct
-{
-  fd_t     fd;
-} symlink_fd_t;
 
 typedef struct numeric_fd_t
 {
