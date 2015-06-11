@@ -175,25 +175,49 @@ get_fd (int fd_id)
 }
 
 
-int new_file_fd(file_fd_t *fd)
+uint32_t new_file_fd(file_fd_t *fd)
 {
-
+ //TODO
 }
 
 
-int new_dir_fd(dir_fd_t *fd)
+uint32_t new_dir_fd(dir_fd_t *fd)
 {
-
+  //TODO
 }
 
-
-int new_symlink_fd(fd_t *fd)
+int 
+update_dir_fd (int fd_id, dir_fd_t *dir)
 {
+  //TODO
+}
 
+uint32_t
+new_symlink_fd(symlink_fd_t *fd)
+{
+  //TODO
+}
+
+int
+append_data_to_fd (uint32_t fd_id, void *data, uint64_t size)
+{
+  //TODO
 }
 
 void *
 get_data (fd_t fd/*, uint32_t block_num*/)
 {
   //TODO
+}
+
+uint32_t
+find_free_block 
+{
+
+}
+
+int
+write_block (uint32_t block_id, void *data)
+{
+  
 }

@@ -46,9 +46,6 @@ remove_numeric_fd (uint32_t number);
 int
 get_fd_id_by_name (char *name, uint32_t *result);
 
-uint32_t
-calc_block_count ();
-
 
 /**
  * @brief get_hard_link_fd_id
@@ -60,6 +57,12 @@ calc_block_count ();
  */
 int
 get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id);
+
+int
+add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, dir_fd_t dir, uint32_t dir_fd_id);
+
+uint32_t
+calc_block_count ();
 
 uint32_t
 generate_numeric_fd_id ()
@@ -194,6 +197,24 @@ get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
       puts("File doesn't exist.");
       return -1;
     }
+}
+
+int
+add_hard_link_fd_id (char *name, uint32_t hard_link_fd_id, dir_fd_t dir, uint32_t dir_fd_id)
+{
+  unsigned int name_len = strlen (name);
+  if (name_len > MAX_FILE_NAME_SIZE)
+  {
+    printf("File name too long:.%u bytes. Maximum available file name is \n", name_len);
+    return -1;
+  }
+  hard_link_t hard_link;
+  strcpy (hard_link.name, name);
+  hard_link.fd_id = hard_link_fd_id;
+  append_data_to_fd (dir_fd_id, hard_link, sizeof (hard_link_t));
+  dir.fd.size += sizeof (hard_link_t);
+  dir.file_count += 1;
+  update_dir_fd (dir_fd_id, &dir);
 }
 
 uint32_t
@@ -527,4 +548,15 @@ symlink (char *path_name, char *link_name)
 {
   CHECK_IS_MOUNTED
   //TODO
+  symlink_fd_t symlink_fd;
+  symlink_fd.fd.type = SYMLINK_DESCRIPTOR;
+  symlink_fd.fd.size = 4096;
+  symlink_fd.fd.hard_link_count = 1;
+  uint32_t fd_id = new_symlink_fd (&symlink_fd);
+  if (fd_id != BAD_FD_ID)
+    {
+      symlink_fd.fd.additional_block_num = find_free_block ();
+      write_block (symlink_fd.fd.additional_block_num, path_name);
+      add_hard_link_fd_id (link_name, fd_id, g_working_directory_fd_id, g_working_directory);
+    }
 }

@@ -5,12 +5,13 @@
 
 // device properties
 #define VOLUME_SIZE     (uint64_t) 512 * 1024 * 1024 // 512  MiB
-#define DEVICE_FD_COUNT VOLUME_SIZE / 512            // why not?
+#define DEVICE_FD_COUNT VOLUME_SIZE / 1024 / 512     // why not?
 #define BLOCK_SIZE      4096                         // 4    KiB
 #define BLOCK_COUNT     (VOLUME_SIZE / BLOCK_SIZE)   // 2^17
 
 // filesystem properties
-#define FS_ID       0xACDC007
+#define FS_ID                       0xACDC007
+#define BAD_FD_ID                   0
 #define ROOT_FD_ID                  1
 
 #define MAX_FILE_SIZE               ((uint64_t) 1) << 44
@@ -57,6 +58,11 @@ typedef struct
   uint32_t parent_fd_id;
   uint32_t data_links [6];
 } dir_fd_t;
+
+typedef struct
+{
+  fd_t     fd;
+} symlink_fd_t;
 
 typedef struct numeric_fd_t
 {
@@ -129,4 +135,3 @@ int
 symlink (char *path_name, char *link_name);
 
 #endif // FILESYSTEMDRIVER
-
