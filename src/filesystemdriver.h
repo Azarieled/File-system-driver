@@ -58,11 +58,11 @@ typedef struct
   uint32_t data_links [6];
 } dir_fd_t;
 
-typedef struct
+typedef struct numeric_fd_t
 {
   uint32_t number;
   uint32_t fd_id;
-  uint64_t offset;
+  struct numeric_fd_t *next;
 } numeric_fd_t;
 
 typedef struct

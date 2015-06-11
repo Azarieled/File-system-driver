@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "filesystemdriver.h"
 #include "fsdevice.h"
 
@@ -24,33 +25,69 @@ const char *FILE_TYPES_STR []     = {"file", "directory", "symlink"};
 const char *NON_FILE_IO_NOT_SUPPORTED = "This operation is not supported for %.\n";
 
 // session data
-int       g_working_directory_fd_id;
-dir_fd_t     g_working_directory;
+uint32_t  g_working_directory_fd_id;
+dir_fd_t  g_working_directory;
 char      g_working_directory_name [MAX_ABSOLUTE_FILE_NAME_SIZE + 1];
 
+//TODO hashmap
 // opened fd
 numeric_fd_t *g_numeric_fd_list = NULL;
+uint32_t last_generated = 0;
 
 uint32_t
 generate_numeric_fd_id ()
 {
-  //TODO
+  return ++last_generated;
 }
 
-numeric_fd_t
+uint32_t
 add_numeric_fd (uint32_t fd_id)
 {
-  numeric_fd_t fd;
-  fd.number = generate_numeric_fd_id ();
-  fd.fd_id = fd_id;
-  fd.offset = 0;
-  return fd;
+  g_numeric_fd_list = malloc(sizeof (numeric_fd_t));
+  g_numeric_fd_list->number = generate_numeric_fd_id ();
+  //TODO handle generation fail
+  g_numeric_fd_list->fd_id = fd_id;
+  g_numeric_fd_list->next = NULL;
+  return g_numeric_fd_list->number;
 }
 
-numeric_fd_t
-get_numeric_fd ()
+numeric_fd_t *
+get_numeric_fd (uint32_t number)
 {
- //TODO
+  numeric_fd_t *cur = g_numeric_fd_list;
+  while (cur != NULL)
+    {
+      if (cur->number == number)
+        {
+          return cur;
+        }
+      cur = cur->next;
+    }
+
+  return NULL;
+}
+
+int
+remove_numeric_fd (uint32_t number)
+{
+  numeric_fd_t *prev = NULL;
+  numeric_fd_t *cur = g_numeric_fd_list;
+  while (cur != NULL)
+    {
+      if (cur->number == number)
+        {
+          if (prev == NULL)
+            g_numeric_fd_list = cur->next;
+          else
+            prev->next = cur->next;
+          free (cur);
+          return 0;
+        }
+      prev = cur;
+      cur = cur->next;
+    }
+
+  return -1;
 }
 
 
@@ -63,7 +100,7 @@ get_fd_id_by_name (char *name, uint32_t *result)
       return -1;
     }
   // absolute file name
-  if (*name == '/')
+  else if (*name == '/')
     {
       //compound check
       if (*(++name) != '\0')
@@ -86,12 +123,14 @@ get_fd_id_by_name (char *name, uint32_t *result)
           return -1;
         }
 
-      get_hard_link_fd_id (name, g_working_directory, );
+      uint32_t fd_id;
+      int hard_link_status = get_hard_link_fd_id (name, g_working_directory, &fd_id);
+      if (hard_link_status != -1)
+        {
+          result = fd_id;
+        }
+      return hard_link_status;
     }
-
-  //TODO NOT SUPPORTED now
-  puts("The compound file names not supported yet.");
-
 }
 
 int
@@ -115,7 +154,7 @@ get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
   else
     {
       hard_link_t *links = get_data (g_working_directory_fd_id);
-      for (int i = 0; i < g_working_directory.file_count; ++i)
+      for (uint32_t i = 0; i < g_working_directory.file_count; ++i)
         {
           if (StrRel(name, ==, links->name))
             {
@@ -147,12 +186,33 @@ mount ()
   if (mount_status == -1)
     {
       //EXCEPTION
+      puts ("Some problems occured during file system mount.");
       return -1;
     }
 
   // initializing working directory
   g_working_directory_fd_id = ROOT_FD_ID;
-  g_working_directory = get_dir (g_working_directory_fd_id);
+
+  dir_fd_t *root_dir_ptr = get_fd (g_working_directory_fd_id);
+
+  if (root_dir_ptr == NULL)
+    {
+      //EXCEPTION
+      puts ("Couldn't get file system root.");
+      return -1;
+    }
+
+  // for being sure that file system is not corrupted
+  if (root_dir_ptr->fd.type != DIRECTORY_DESCRIPTOR)
+    {
+      //EXCEPTION
+      puts ("File system root is corrupted.");
+      return -1;
+    }
+
+  g_working_directory = *root_dir_ptr;
+  free (root_dir_ptr);
+
   strcpy (g_working_directory_name, ROOT_DIRECTORY_STR);
 
   return mount_status;
@@ -167,7 +227,7 @@ umount ()
   if (umount_fs ()) // if returns 0, than all is ok
     {
       //EXCEPTION
-      puts ("Problem occured during FS unmount.");
+      puts ("Some problems occured during file system unmount.");
       return -1;
     }
   else
@@ -195,12 +255,12 @@ filestat(uint32_t fd_id)
       return -1;
     }
 
-  fd_t fd = get_fd (fd_id);
-  char *file_type = FILE_TYPES_STR[fd.type];
-  printf ("File descriptor %lu is a %s.\n"
+  fd_t *fd = get_fd (fd_id);
+  char *file_type = FILE_TYPES_STR[fd->type];
+  printf ("File descriptor %u is a %s.\n"
           "Size: %lu\n"
-          "Has %lu hardlinks.\n",
-          fd_id, file_type, fd.size, fd.hard_link_count);
+          "Has %u hardlinks.\n",
+          fd_id, file_type, fd->size, fd->hard_link_count);
   return 0;
 }
 
@@ -209,17 +269,17 @@ int
 ls ()
 {
   CHECK_IS_MOUNTED
-  puts (CURRENT_DIRECTORY_STR);
-  puts (PARENT_DIRECTORY_STR);
+  printf ("%s %ul", CURRENT_DIRECTORY_STR, g_working_directory_fd_id);
+  printf ("%s %ul", PARENT_DIRECTORY_STR, g_working_directory.parent_fd_id);
   uint32_t link_count = g_working_directory.file_count;
   hard_link_t *links = get_data (g_working_directory_fd_id);
   for (int i = 0; i < link_count; ++i)
     {
-      puts ((links++)->name);
+      printf ("%s %ul", links->name, links->fd_id);
+      ++links;
     }
   return 0;
 }
-
 
 int
 create(char *name)
@@ -235,23 +295,26 @@ open(char *name, uint32_t *numeric_descriptor)
   CHECK_IS_MOUNTED
 
   //TODO finish this
-  uint32_t fd;
-  int find_file_status = get_fd_id_by_name (name, &fd);
+  uint32_t fd_id;
+  int find_file_status = get_fd_id_by_name (name, &fd_id);
+
   if (find_file_status != -1)
     {
-      fd_t file_fd = get_fd (fd);
-      if (file_fd.type == FILE_DESCRIPTOR)
+      file_fd_t *file_fd_ptr = get_fd (fd_id);
+      if (file_fd_ptr->fd.type == FILE_DESCRIPTOR)
         {
-          numeric_fd_t numeric_fd = add_numeric_fd (file_fd);
-          printf ("Numeric file descriptor: %ul", numeric_fd.number);
+          numeric_descriptor = add_numeric_fd (fd_id);
+          printf ("Numeric file descriptor: %ul", numeric_descriptor);
         }
       else
         {
           //EXCEPTION
-          printf (NON_FILE_IO_NOT_SUPPORTED, FILE_TYPES_STR [file_fd.type]);
+          printf (NON_FILE_IO_NOT_SUPPORTED, FILE_TYPES_STR [file_fd_ptr->fd.type]);
           return -1;
         }
     }
+
+  return find_file_status;
 }
 
 
@@ -260,6 +323,10 @@ close(uint32_t fd)
 {
   CHECK_IS_MOUNTED
   //TODO
+  if (remove_numeric_fd (fd) == 0)
+    printf ("File descriptor with number %u closed.\n", fd);
+  else
+    printf ("File descriptor with number %u not found.\n", fd);
 }
 
 
@@ -269,16 +336,17 @@ read(uint32_t fd, uint64_t offset, uint64_t size, char *buffer)
   CHECK_IS_MOUNTED
 
   // asserting that opened file is simple file
-  numeric_fd_t numeric_fd = get_numeric_fd (fd);
-  fd_t file_fd = get_fd(numeric_fd.fd_id);
-  if (file_fd.type == FILE_DESCRIPTOR)
+  numeric_fd_t *numeric_fd = get_numeric_fd (fd);
+  file_fd_t *file_fd = get_fd(numeric_fd->fd_id);
+  if (file_fd->fd.type == FILE_DESCRIPTOR)
     {
-      get_data (numeric_fd.fd_id);
+      get_data (numeric_fd->fd_id);
+      //TODO
     }
   else
     {
       //EXCEPTION
-      printf (NON_FILE_IO_NOT_SUPPORTED, FILE_TYPES_STR [file_fd.type]);
+      printf (NON_FILE_IO_NOT_SUPPORTED, FILE_TYPES_STR [file_fd->fd.type]);
       return -1;
     }
 }
@@ -342,14 +410,16 @@ cd (char *dir_name)
 
   uint32_t fd_id;
   int get_status = get_fd_id_by_name (dir_name, fd_id);
-  fd_t fd = get_fd (fd_id);
-  if (fd.type == DIRECTORY_DESCRIPTOR)
+  dir_fd_t *dir_fd = get_fd (fd_id);
+  if (dir_fd->fd.type == DIRECTORY_DESCRIPTOR)
     {
       g_working_directory_fd_id = fd_id;
-      g_working_directory = ();
-      //TODO finish this
-      strcat (g_working_directory_name, name);
+
+      g_working_directory = *dir_fd;
+      strcat (g_working_directory_name, dir_name);
     }
+  else
+    printf ("%s is not a directory.", dir_name);
 }
 
 

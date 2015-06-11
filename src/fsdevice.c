@@ -146,21 +146,12 @@ get_bit_map ()
   return g_block_bitmap;
 }
 
-fd_t
+fd_t *
 get_fd (int fd_id)
 {
+  fd_t *fd = malloc(sizeof (fd_t) * 2);
   //TODO
-  fd_t fd;
-  fd.size = 4096;
-  fd.type = DIRECTORY_DESCRIPTOR;
-  fd.hard_link_count = 4;
   return fd;
-}
-
-dir_fd_t
-get_dir (int fd_id)
-{
-  //TODO
 }
 
 void *

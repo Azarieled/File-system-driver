@@ -22,11 +22,8 @@ get_fs_header ();
 char *
 get_bit_map ();
 
-fd_t
+fd_t *
 get_fd (int fd_id);
-
-dir_fd_t
-get_dir (int fd_id);
 
 void *
 get_data ();
