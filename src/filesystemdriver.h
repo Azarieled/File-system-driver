@@ -19,7 +19,7 @@
 #define MAX_FILES_IN_DIRECTORY      UINT32_MAX
 #define MAX_HARDLINK_COUNT          1 << 26
 #define MAX_ABSOLUTE_FILE_NAME_SIZE 4095          // symlink can be written in 1 block
-#define MAX_FILE_NAME_SIZE          256 - 32 - 1           // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
+#define MAX_FILE_NAME_SIZE          256 - 32 - 1  // 256 - 20 - 1, 20 - descriptor_id, 1 - \0 symbol
 
 typedef enum { FILE_DESCRIPTOR, DIRECTORY_DESCRIPTOR, SYMLINK_DESCRIPTOR } file_type_t;
 

@@ -46,6 +46,9 @@ remove_numeric_fd (uint32_t number);
 int
 get_fd_id_by_name (char *name, uint32_t *result);
 
+uint32_t
+calc_block_count ();
+
 
 /**
  * @brief get_hard_link_fd_id
@@ -193,7 +196,14 @@ get_hard_link_fd_id (char *name, dir_fd_t dir, uint32_t *fd_id)
     }
 }
 
-// implementation of header functions
+uint32_t
+calc_block_count (fd_t fd)
+{
+  uint32_t block_size = get_fs_header().block_size;
+  return (fd.size + block_size - 1) / block_size;
+}
+
+// === implementation of header functions ===
 
 int
 mount ()
@@ -326,7 +336,7 @@ open(char *name, uint32_t *numeric_descriptor)
       if (file_fd_ptr->fd.type == FILE_DESCRIPTOR)
         {
           *numeric_descriptor = add_numeric_fd (fd_id);
-          printf ("Numeric file descriptor: %lu", *numeric_descriptor);
+          printf ("Numeric file descriptor: %u", *numeric_descriptor);
         }
       else
         {
@@ -359,7 +369,25 @@ read(uint32_t fd, uint64_t offset, uint64_t size, char *buffer)
   // assuming that open checked that file is simple file
   numeric_fd_t *numeric_fd = get_numeric_fd (fd);
   uint32_t fd_id = numeric_fd->fd_id;
-  //TODO char *data = get_data();
+
+  file_fd_t *fd_ptr = (file_fd_t *) get_fd (fd_id);
+  file_fd_t file_fd = *fd_ptr;
+  free (fd_ptr);
+
+  if (offset > file_fd.fd.size)
+    {
+      printf ("Impossible to read not from file. Offset (%llu) is bigger than file size (%llu).\n", offset, file_fd.fd.size);
+      return -1;
+    }
+  else if (offset + size < offset || offset + size > file_fd.fd.size)
+    {
+      printf ("Impossible to read not from file. Trying to read with offset (%llu) size (%llu). Their summ is bigger than file size (%llu).\n", offset, size, file_fd.fd.size);
+      return -1;
+    }
+  else
+    {
+      //TODO char *data = get_data();
+    }
 }
 
 
@@ -430,15 +458,17 @@ cd (char *dir_name)
       return 0;
     }
 
-  dir_fd_t *dir_fd = (dir_fd_t *) get_fd (fd_id);
-  if (dir_fd->fd.type != DIRECTORY_DESCRIPTOR)
+  fd_t *fd_ptr = get_fd (fd_id);
+  if (fd_ptr->type != DIRECTORY_DESCRIPTOR)
     {
+      free (fd_ptr);
       printf ("%s is not a directory.", dir_name);
       return -1;
     }
 
   g_working_directory_fd_id = fd_id;
-  g_working_directory = *dir_fd;
+  g_working_directory = *((dir_fd_t *) fd_ptr);
+  free (fd_ptr);
 
   //TODO change this workaround if compound names in cd will be implemented
   if (*dir_name == '/')
