@@ -29,7 +29,7 @@ char *
 get_bit_map ();
 
 int
-get_fd (int fd_id, fd_t *fd);
+get_fd (uint32_t fd_id, fd_t *fd);
 
 uint32_t
 create_fd (fd_t *fd);

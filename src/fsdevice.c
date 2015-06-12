@@ -9,16 +9,15 @@
 const char *DEFAULT_IMG_NAME      = "drivion.img";
 
 // shared buffer
-const int buffer_size = BLOCK_SIZE;
-const char buffer [BLOCK_SIZE];
+const unsigned int buffer_size = BLOCK_SIZE;
+static char buffer [BLOCK_SIZE];
 
 // fs file ptr
-FILE     *g_img_file = NULL;
+static FILE     *g_img_file = NULL;
 
 // fs cached data
-fs_header_t  g_fs_header;
-char        *g_block_bitmap;
-
+static fs_header_t  g_fs_header;
+static char        *g_block_bitmap;
 
 // === header func impl ===
 
@@ -98,34 +97,38 @@ umount_fs()
 int
 create_img ()
 {
-  g_img_file = fopen (DEFAULT_IMG_NAME, "wb+");
-  if (!g_img_file)
-    {
-      // EXCEPTION
-      puts ("Problem occured during creating FS image.");
-      return -1;
-    }
-
-  g_fs_header.fs_id = FS_ID;
-  g_fs_header.block_count = BLOCK_COUNT;
-  g_fs_header.block_size = BLOCK_SIZE;
-  g_fs_header.fd_count = DEVICE_FD_COUNT;
+  fs_header_t fs_header =
+  {
+    .fs_id = FS_ID,
+    .block_count = BLOCK_COUNT,
+    .block_size = BLOCK_SIZE,
+    .fd_count = DEVICE_FD_COUNT
+  };
 
   // bitmap
-  //TODO add occupied blocks
-  g_fs_header.bitmap_block_num = HEADER_BLOCK_NUM + HEADER_BLOCK_COUNT;
-  int bitmap_blocks_count = (BITNSLOTS(g_fs_header.block_count) + g_fs_header.block_size - 1) / g_fs_header.block_size;
+  char block_bitmap [BITNSLOTS(fs_header.block_count)];
+  memset (block_bitmap, 0, sizeof block_bitmap);
+  fs_header.bitmap_block_num = HEADER_BLOCK_NUM + HEADER_BLOCK_COUNT;
+  uint64_t bitmap_blocks_count = (BITNSLOTS(fs_header.block_count) + fs_header.block_size - 1) / fs_header.block_size;
 
   // descriptors
-  g_fs_header.fd_block_num = bitmap_blocks_count + g_fs_header.bitmap_block_num;
-  int fd_blocks_count = (g_fs_header.fd_count + g_fs_header.block_size - 1) / g_fs_header.block_size;
+  fs_header.fd_block_num = bitmap_blocks_count + fs_header.bitmap_block_num;
+  uint64_t fd_bytes_count = fs_header.fd_count * sizeof (fd_t);
+  uint64_t fd_blocks_count = (fd_bytes_count + fs_header.block_size - 1) / fs_header.block_size;
 
   // data blocks
-  g_fs_header.data_block_num = g_fs_header.fd_block_num + fd_blocks_count;
-  int data_blocks_count = g_fs_header.block_count - g_fs_header.data_block_num;
+  fs_header.data_block_num = fs_header.fd_block_num + fd_blocks_count;
+  uint64_t data_blocks_count = fs_header.block_count - fs_header.data_block_num;
+
+  // bitmap finish
+  for (uint32_t i = 0; i <= BITNSLOTS(fs_header.data_block_num); ++i)
+    {
+      BITSET (block_bitmap, i);
+    }
+
 
   // root descriptor
-  fd_t root_descriptor = {
+  fd_t root_fd = {
     //.creation_date = ,
     //.modification_date = ,
     .size = 0,
@@ -134,35 +137,46 @@ create_img ()
     .owner_mode = 7,
     .group_mode = 5,
     .other_mode = 5,
-    .additional_block_num = g_fs_header.data_block_num
+    .additional_block_num = fs_header.data_block_num
   };
 
-  // writing files
-  memset (&buffer, 0, buffer_size);
+  // writing to img file
+  g_img_file = fopen (DEFAULT_IMG_NAME, "wb+");
+  if (!g_img_file)
+    {
+      // EXCEPTION
+      puts ("Problem occured during creating FS image.");
+      return -1;
+    }
+  memset (buffer, 0, buffer_size);
 
   // header
-  *((fs_header_t *) buffer) = g_fs_header;
+  *((fs_header_t *) buffer) = fs_header;
   fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
-  memset (&buffer, 0, sizeof g_fs_header);
+  memset (buffer, 0, sizeof fs_header);
 
   // bitmap
-  for (int i = 0; i < bitmap_blocks_count; ++i)
+  for (uint64_t i = 0; i < bitmap_blocks_count; ++i)
     {
-      fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
+      fwrite (block_bitmap + (BLOCK_COUNT / CHAR_BIT * i), BLOCK_SIZE, 1, g_img_file);
     }
+  //TODO safer writing last iteration
 
   // fd_blocks
-  for (int i = 0; i < fd_blocks_count - 1 ; ++i)
+  *((fd_t *) buffer) = root_fd;
+  fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
+  memset (buffer, 0, sizeof root_fd);
+  for (uint64_t i = 0; i < fd_blocks_count - 1; ++i)
     {
       fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
     }
 
   // data_blocks
-  for (int i = 0; i < data_blocks_count - 1; ++i)
+  for (uint64_t i = 0; i < data_blocks_count; ++i)
     {
       fwrite (buffer, BLOCK_SIZE, 1, g_img_file);
     }
-  return 1;
+  return 0;
 }
 
 fs_header_t
@@ -178,11 +192,12 @@ get_bit_map ()
 }
 
 int
-get_fd (int fd_id, fd_t *fd)
+get_fd (uint32_t fd_id, fd_t *fd)
 {
-  fd_t found_fd;
-  //TODO
-  *fd = found_fd;
+  //TODO check overflow
+  long offset = g_fs_header.fd_block_num * g_fs_header.block_size;
+  fseek (g_img_file, offset + (fd_id * sizeof (fd_t)), SEEK_SET);
+  fread (fd, sizeof *fd, 1, g_img_file);
   return 0;
 }
 
