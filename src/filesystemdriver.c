@@ -9,18 +9,21 @@
 #define StrRel(s1, op, s2) (strcmp(s1, s2) op 0)
 #endif //StrRel
 
-#define CHECK_IS_MOUNTED \
-if (is_mounted ())       \
-  {                      \
-    return -1;           \
-  }                      \
-
+#define CHECK_IS_MOUNTED                                                 \
+if (!is_mounted ())                                                      \
+  {                                                                      \
+    puts ("Please, mount the file system in order to use this command"); \
+    return -1;                                                           \
+  }                                                                      \
+\
 
 // string literals
 const char *ROOT_DIRECTORY_STR    = "/";
 const char *CURRENT_DIRECTORY_STR = ".";
 const char *PARENT_DIRECTORY_STR  = "..";
 const char *FILE_TYPES_STR []     = {"file", "directory", "symlink"};
+
+const char *LS_FILE_STR = "%s (%u)\n";
 
 // session data
 uint32_t  g_working_directory_fd_id;
@@ -244,7 +247,7 @@ mount ()
 
   int mount_status = mount_fs ();
 
-  if (mount_status == -1)
+  if (mount_status != 0)
     {
       //EXCEPTION
       if (is_mounted())
@@ -282,8 +285,8 @@ mount ()
     }
 
   strcpy (g_working_directory_name, ROOT_DIRECTORY_STR);
-
-  return mount_status;
+  puts ("File system successfully mounted.");
+  return 0;
 }
 
 
@@ -344,13 +347,13 @@ int
 ls ()
 {
   CHECK_IS_MOUNTED
-  printf ("%s %u", CURRENT_DIRECTORY_STR, g_working_directory_fd_id);
-  printf ("%s %u", PARENT_DIRECTORY_STR, g_working_directory.parent_fd_id);
+  printf (LS_FILE_STR, CURRENT_DIRECTORY_STR, g_working_directory_fd_id);
+  printf (LS_FILE_STR, PARENT_DIRECTORY_STR, g_working_directory.parent_fd_id);
   uint32_t link_count = g_working_directory.size / sizeof (hard_link_t);
   hard_link_t *links = get_data (g_working_directory);
   for (uint32_t i = 0; i < link_count; ++i)
     {
-      printf ("%s - %u", links->name, links->fd_id);
+      printf (LS_FILE_STR, links->name, links->fd_id);
       ++links;
     }
   return 0;
@@ -576,7 +579,9 @@ int
 pwd ()
 {
   CHECK_IS_MOUNTED
+
   puts (g_working_directory_name);
+  return 0;
 }
 
 int

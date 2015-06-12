@@ -4,8 +4,8 @@
 #include <stdint-gcc.h>
 
 // device properties
-#define VOLUME_SIZE     (uint64_t) 512 * 1024  // 512  KiB
-#define DEVICE_FD_COUNT VOLUME_SIZE / 4096     // why not?
+#define VOLUME_SIZE     (uint64_t) 512 * 1024        // 512  KiB
+#define DEVICE_FD_COUNT VOLUME_SIZE / 4096           // why not?
 #define BLOCK_SIZE      4096                         // 4    KiB
 #define BLOCK_COUNT     (VOLUME_SIZE / BLOCK_SIZE)   // 2^17
 

@@ -41,6 +41,7 @@ to_uint64_t (char *from, uint64_t *to, char *format_error_message, char *length_
 int main ()
 {
   _Static_assert (BLOCK_SIZE > sizeof (fs_header_t), "Block size must be not less than header");
+  _Static_assert (BLOCK_SIZE > sizeof (fd_t), "Block size must be not less than file descriptor");
   char buffer [INPUT_BUFFER_SIZE];
   do
     {
