@@ -1,7 +1,7 @@
 # File-system-driver
-Simple implementation of file system driver as a console utility with a set of commands (most are Unix-like).
+Simple implementation of file system driver as a console utility with possibility to invoke Unix-like filesystem syscalls.
 
-Some of Unix-like implemented commands:
+The list of implemented Unix-like system calls:
 - mount
 - umount
 - pwd
@@ -13,8 +13,6 @@ Some of Unix-like implemented commands:
 - unlink
 - truncate
 - rm
-
-Other commands:
 - create
 - filestat
 - open
